@@ -443,6 +443,7 @@ function typeLine(text,cls='') {
     const el=document.createElement('span');
     el.className='line'+(cls?' '+cls:'');
     terminal.appendChild(el);
+    terminal.scrollTop = terminal.scrollHeight;
     const chars=text.split(''); let i=0,cc=0;
     const cursor=document.createElement('span'); cursor.className='cursor'; el.appendChild(cursor);
     function next(){
