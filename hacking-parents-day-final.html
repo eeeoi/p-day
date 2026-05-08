@@ -1,0 +1,615 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<title>...</title>
+<link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Noto+Sans+KR:wght@300;400;700;900&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --green: #00ff41;
+    --green-dim: #00aa2a;
+    --green-dark: #003a0e;
+    --bg: #080808;
+    --yellow: #ffcc00;
+    --white: #e8ffe8;
+  }
+
+  * { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+  html, body { width:100%; height:100%; background:var(--bg); color:var(--green); font-family:'Share Tech Mono',monospace; overflow:hidden; }
+
+  /* CRT 스캔라인 */
+  body::before {
+    content:''; position:fixed; inset:0;
+    background:repeating-linear-gradient(0deg,transparent,transparent 3px,rgba(0,0,0,0.10) 3px,rgba(0,0,0,0.10) 4px);
+    pointer-events:none; z-index:1000;
+  }
+  /* 비네팅 */
+  body::after {
+    content:''; position:fixed; inset:0;
+    background:radial-gradient(ellipse at 50% 50%, transparent 55%, rgba(0,0,0,0.55) 100%);
+    pointer-events:none; z-index:999;
+  }
+
+  /* ── 침입 경고 화면 (첫 화면) ── */
+  #breach-screen {
+    position:fixed; inset:0; background:var(--bg);
+    display:flex; flex-direction:column; align-items:center; justify-content:center;
+    z-index:800; gap:0;
+    transition:opacity 0.3s ease;
+    cursor:pointer;
+  }
+  #breach-screen.hide { opacity:0; pointer-events:none; }
+
+  .breach-top {
+    width:100%; text-align:center;
+    font-size:clamp(0.55rem,2.2vw,0.68rem);
+    color:var(--green-dim); letter-spacing:0.18em;
+    padding:0 20px 28px;
+    border-bottom:1px solid var(--green-dark);
+    margin-bottom:32px;
+  }
+
+  .breach-icon {
+    font-size:clamp(2.8rem,12vw,4rem);
+    margin-bottom:20px;
+    animation:icon-flicker 2s ease-in-out infinite;
+  }
+  @keyframes icon-flicker {
+    0%,90%,100%{opacity:1} 92%{opacity:0.2} 94%{opacity:1} 96%{opacity:0.4} 98%{opacity:1}
+  }
+
+  .breach-title {
+    font-size:clamp(1rem,5.5vw,1.4rem);
+    color:var(--green);
+    text-shadow:0 0 14px var(--green), 0 0 28px rgba(0,255,65,0.3);
+    letter-spacing:0.15em;
+    margin-bottom:10px;
+    animation:text-glow 1.5s ease-in-out infinite;
+  }
+  @keyframes text-glow {
+    0%,100%{text-shadow:0 0 10px var(--green)} 50%{text-shadow:0 0 22px var(--green),0 0 40px rgba(0,255,65,0.4)}
+  }
+
+  .breach-sub {
+    font-size:clamp(0.58rem,2.4vw,0.72rem);
+    color:var(--green-dim); letter-spacing:0.1em;
+    margin-bottom:36px; text-align:center; padding:0 24px;
+    line-height:1.9;
+  }
+
+  .breach-bar-wrap {
+    width:clamp(200px,70vw,320px);
+    margin-bottom:8px;
+  }
+  .breach-bar {
+    height:3px; background:var(--green-dark);
+    border:1px solid var(--green-dim);
+    overflow:hidden; margin-bottom:6px;
+  }
+  .breach-bar-fill {
+    height:100%; width:0%; background:var(--green);
+    box-shadow:0 0 6px var(--green);
+    animation:breach-load 2.4s ease-in-out infinite;
+  }
+  @keyframes breach-load {
+    0%{width:0%} 60%{width:85%} 75%{width:72%} 85%{width:92%} 92%{width:80%} 100%{width:100%}
+  }
+  .breach-bar-label {
+    font-size:0.6rem; color:var(--green-dim); letter-spacing:0.1em;
+    display:flex; justify-content:space-between;
+  }
+
+  .breach-hint {
+    margin-top:28px;
+    font-size:clamp(0.58rem,2.2vw,0.68rem);
+    color:#1a4a1a; letter-spacing:0.15em;
+    animation:hint-blink 2s step-end infinite;
+  }
+  @keyframes hint-blink { 0%,100%{opacity:1} 50%{opacity:0.2} }
+
+  /* 랜덤 노이즈 문자열 */
+  .noise-line {
+    font-size:clamp(0.5rem,2vw,0.62rem);
+    color:#0a2a0a; letter-spacing:0.05em;
+    margin-bottom:4px; text-align:center;
+    padding:0 16px; line-height:1.6;
+    word-break:break-all;
+  }
+
+  /* ── 터미널 화면 ── */
+  #screen {
+    position:fixed; inset:0;
+    padding:max(env(safe-area-inset-top),14px) 14px 14px;
+    display:flex; flex-direction:column;
+    opacity:0; pointer-events:none;
+  }
+  #screen.show {
+    opacity:1; pointer-events:all;
+    animation:power-on 0.6s ease forwards;
+  }
+  @keyframes power-on {
+    0%  {opacity:0;filter:brightness(0)}
+    15% {opacity:1;filter:brightness(4)}
+    25% {opacity:0.4}
+    35% {opacity:1;filter:brightness(1.8)}
+    45% {opacity:0.7}
+    55% {opacity:1;filter:brightness(1)}
+    100%{opacity:1;filter:brightness(1)}
+  }
+
+  .statusbar {
+    display:flex; justify-content:space-between; align-items:center;
+    font-size:clamp(0.52rem,2vw,0.65rem); color:var(--green-dim);
+    border-bottom:1px solid var(--green-dark);
+    padding-bottom:7px; margin-bottom:12px;
+    gap:4px; overflow:hidden;
+  }
+  .statusbar span { white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+
+  .blink { animation:blink 1s step-end infinite; }
+  @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0} }
+
+  #terminal {
+    flex:1; overflow-y:auto; overflow-x:hidden;
+    font-size:clamp(0.7rem,3.3vw,0.87rem);
+    line-height:1.8; letter-spacing:0.02em;
+    -webkit-overflow-scrolling:touch;
+    scrollbar-width:none; padding-bottom:8px;
+  }
+  #terminal::-webkit-scrollbar { display:none; }
+
+  .line { display:block; white-space:pre-wrap; word-break:break-word; }
+  .line.prompt::before { content:'> '; color:var(--green-dim); }
+  .line.dim   { color:var(--green-dim); }
+  .line.bright{ color:#88ffaa; text-shadow:0 0 8px rgba(136,255,170,0.35); }
+  .line.warn  { color:var(--yellow); }
+  .line.white { color:var(--white); }
+
+  /* TARGET 카드 */
+  .target-card {
+    border:1px solid var(--green-dim); border-radius:4px;
+    margin:6px 0; padding:10px 14px;
+    background:rgba(0,255,65,0.04);
+    animation:card-in 0.3s ease;
+  }
+  @keyframes card-in { from{opacity:0;transform:translateY(4px)} to{opacity:1;transform:translateY(0)} }
+  .target-card .t-label { font-size:0.62rem; color:var(--green-dim); letter-spacing:0.15em; margin-bottom:4px; }
+  .target-card .t-name  { font-size:clamp(1rem,4.5vw,1.2rem); color:#88ffaa; letter-spacing:0.06em; font-weight:bold; }
+  .target-card .t-role  { font-size:clamp(0.72rem,3vw,0.85rem); color:var(--yellow); margin-top:3px; letter-spacing:0.08em; }
+
+  /* 진행 바 */
+  .progress-wrap { display:flex; align-items:center; gap:8px; margin:3px 0; }
+  .progress-bar  { flex:1; height:7px; background:var(--green-dark); border:1px solid var(--green-dim); border-radius:2px; overflow:hidden; }
+  .progress-fill { height:100%; background:var(--green); width:0%; transition:width 0.04s linear; box-shadow:0 0 5px var(--green); }
+  .progress-pct  { min-width:36px; font-size:0.72rem; color:var(--green); text-align:right; }
+
+  /* 커서 */
+  .cursor {
+    display:inline-block; width:8px; height:1em;
+    background:var(--green); vertical-align:text-bottom;
+    animation:blink 0.75s step-end infinite; margin-left:1px;
+  }
+
+  /* ── 최종 화면 ── */
+  #final-screen {
+    position:fixed; inset:0; background:#000;
+    display:flex; flex-direction:column; align-items:center; justify-content:center;
+    padding:28px 24px; text-align:center;
+    opacity:0; pointer-events:none;
+    transition:opacity 0.7s ease; z-index:200; overflow-y:auto;
+  }
+  #final-screen.show { opacity:1; pointer-events:all; }
+
+  .final-names {
+    display:flex; gap:clamp(12px,4vw,24px);
+    justify-content:center; margin-bottom:22px; flex-wrap:wrap;
+  }
+  .name-badge {
+    display:flex; flex-direction:column; align-items:center; gap:6px;
+    border:1px solid #ff6b8a; border-radius:8px; padding:14px 20px;
+    background:rgba(255,107,138,0.06);
+    animation:badge-glow 2s ease-in-out infinite;
+  }
+  @keyframes badge-glow {
+    0%,100%{box-shadow:0 0 14px rgba(255,107,138,0.2)} 50%{box-shadow:0 0 26px rgba(255,107,138,0.45)}
+  }
+  .badge-icon { font-size:clamp(1.8rem,8vw,2.4rem); }
+  .badge-name { font-family:'Share Tech Mono',monospace; font-size:clamp(0.72rem,3vw,0.9rem); color:#ff6b8a; letter-spacing:0.1em; }
+  .badge-role { font-family:'Noto Sans KR',sans-serif; font-size:clamp(0.62rem,2.5vw,0.75rem); color:#666; }
+
+  .final-icon { font-size:clamp(2.4rem,11vw,3.5rem); margin-bottom:14px; animation:heartbeat 1.6s ease-in-out infinite; }
+  @keyframes heartbeat { 0%,100%{transform:scale(1)} 30%{transform:scale(1.18)} 60%{transform:scale(1.07)} }
+
+  .final-title {
+    font-family:'Noto Sans KR',sans-serif;
+    font-size:clamp(1.5rem,7vw,2.4rem);
+    font-weight:900; color:#fff; margin-bottom:12px; letter-spacing:-0.02em;
+  }
+  .final-title span { color:#ff6b8a; }
+
+  .final-sub {
+    font-family:'Noto Sans KR',sans-serif;
+    font-size:clamp(0.85rem,3.5vw,1rem);
+    color:#888; line-height:2; font-weight:300; margin-bottom:22px;
+  }
+
+  .final-tag {
+    font-family:'Share Tech Mono',monospace;
+    font-size:clamp(0.5rem,1.9vw,0.65rem);
+    color:#2a2a2a; letter-spacing:0.1em;
+    border-top:1px solid #151515; padding-top:14px; line-height:1.9;
+  }
+
+  .star {
+    position:absolute; opacity:0;
+    animation:star-pop 2.2s ease-out forwards;
+    pointer-events:none; font-size:clamp(1rem,4.5vw,1.4rem);
+  }
+  @keyframes star-pop {
+    0%{transform:scale(0) rotate(0deg);opacity:0} 25%{opacity:1} 100%{transform:scale(1.6) rotate(var(--r));opacity:0}
+  }
+
+  /* 글리치 */
+  .glitch-overlay {
+    position:fixed; inset:0;
+    background:repeating-linear-gradient(90deg,rgba(0,255,65,0.05) 0px,transparent 1px,transparent 5px);
+    z-index:500; opacity:0; pointer-events:none;
+    animation:glitch-flash 0.45s steps(1) forwards; animation-play-state:paused;
+  }
+  .glitch-overlay.active { animation-play-state:running; }
+  @keyframes glitch-flash {
+    0%  {opacity:1;transform:translateX(0) skewX(0deg)}
+    20% {opacity:0.8;transform:translateX(-5px) skewX(-1.5deg)}
+    40% {opacity:1;transform:translateX(5px) skewX(1deg)}
+    60% {opacity:0.5;transform:translateX(-2px)}
+    80% {opacity:0.9;transform:translateX(3px) skewX(0.5deg)}
+    100%{opacity:0;transform:translateX(0)}
+  }
+</style>
+</head>
+<body>
+
+<!-- 침입 경고 첫 화면 -->
+<div id="breach-screen" onclick="startSequence()">
+  <div class="breach-top">
+    SYS://192.168.0.1 &nbsp;|&nbsp; <span class="blink">INTRUDER DETECTED</span>
+  </div>
+
+  <div class="breach-icon">⚠️</div>
+  <div class="breach-title">UNAUTHORIZED ACCESS</div>
+  <div class="breach-sub">
+    외부 침입 감지됨<br>
+    보안 프로토콜 우회 중...
+  </div>
+
+  <div class="breach-bar-wrap">
+    <div class="breach-bar"><div class="breach-bar-fill"></div></div>
+    <div class="breach-bar-label">
+      <span>BYPASSING FIREWALL</span>
+      <span id="breach-pct">--</span>
+    </div>
+  </div>
+
+  <div class="noise-line" id="noise-line">_</div>
+
+  <div class="breach-hint">// 화면을 터치하면 침입이 완료됩니다</div>
+</div>
+
+<div class="glitch-overlay" id="glitch"></div>
+
+<div id="screen">
+  <div class="statusbar">
+    <span>TERMINAL v2.4.1</span>
+    <span id="clock"></span>
+    <span><span class="blink">●</span> LIVE</span>
+  </div>
+  <div id="terminal"></div>
+</div>
+
+<div id="final-screen">
+  <div class="final-names">
+    <div class="name-badge">
+      <div class="badge-icon">👩</div>
+      <div class="badge-name">곽은진</div>
+      <div class="badge-role">최고의 엄마</div>
+    </div>
+    <div class="name-badge">
+      <div class="badge-icon">👨</div>
+      <div class="badge-name">이종주</div>
+      <div class="badge-role">최고의 아빠</div>
+    </div>
+  </div>
+  <div class="final-icon">❤️</div>
+  <div class="final-title">항상 <span>감사합니다</span></div>
+  <p class="final-sub">
+    세상에서 가장 고생 많으신 두 분,<br>
+    오늘 어버이날을 진심으로 축하드려요 🌹
+  </p>
+  <div class="final-tag">
+    // MISSION COMPLETE<br>
+    PARENTS.EXE — SUCCESSFULLY APPRECIATED ✓
+  </div>
+</div>
+
+<script>
+// ══════════════════════════════
+//  노이즈 문자 애니메이션
+// ══════════════════════════════
+const CHARS = 'ABCDEFabcdef0123456789!@#$%^&*<>/\\|[]{}';
+function randStr(len) {
+  return Array.from({length:len},()=>CHARS[Math.floor(Math.random()*CHARS.length)]).join('');
+}
+const noiseLine = document.getElementById('noise-line');
+const breachPct = document.getElementById('breach-pct');
+let noiseTimer = setInterval(()=>{
+  noiseLine.textContent = randStr(Math.floor(28+Math.random()*18));
+  breachPct.textContent = Math.floor(Math.random()*40+40)+'%';
+}, 120);
+
+// ══════════════════════════════
+//  Web Audio 효과음
+// ══════════════════════════════
+let ac = null;
+function getAC() {
+  if(!ac) ac = new (window.AudioContext||window.webkitAudioContext)();
+  return ac;
+}
+function beep(freq=880,dur=0.07,vol=0.15,type='square') {
+  try {
+    const ctx=getAC(),osc=ctx.createOscillator(),gain=ctx.createGain();
+    osc.connect(gain); gain.connect(ctx.destination);
+    osc.type=type; osc.frequency.setValueAtTime(freq,ctx.currentTime);
+    gain.gain.setValueAtTime(vol,ctx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.001,ctx.currentTime+dur);
+    osc.start(); osc.stop(ctx.currentTime+dur);
+  } catch(e){}
+}
+function clickSound() {
+  try {
+    const ctx=getAC(),len=Math.floor(ctx.sampleRate*0.018);
+    const buf=ctx.createBuffer(1,len,ctx.sampleRate),d=buf.getChannelData(0);
+    for(let i=0;i<len;i++) d[i]=(Math.random()*2-1)*(1-i/len)*0.9;
+    const src=ctx.createBufferSource(),gain=ctx.createGain();
+    gain.gain.value=0.045; src.buffer=buf;
+    src.connect(gain); gain.connect(ctx.destination); src.start();
+  } catch(e){}
+}
+function alarmBeep(times=3) {
+  for(let i=0;i<times;i++) setTimeout(()=>beep(1400,0.13,0.2,'sawtooth'),i*190);
+}
+function successChime() {
+  [523,659,784,1047].forEach((f,i)=>setTimeout(()=>beep(f,0.16,0.13,'sine'),i*85));
+}
+function glitchSound() {
+  for(let i=0;i<7;i++) setTimeout(()=>beep(150+Math.random()*900,0.04,0.13,'sawtooth'),i*45);
+}
+function finalMelody() {
+  [523,587,659,523,659,784,880,784].forEach((f,i)=>setTimeout(()=>beep(f,0.22,0.12,'sine'),i*115));
+}
+function breachSound() {
+  // 경고음처럼 울리다가 뚫리는 느낌
+  [200,180,160,140,120,100,800,1200].forEach((f,i)=>
+    setTimeout(()=>beep(f,0.08,0.14,'sawtooth'),i*60));
+}
+
+// ══════════════════════════════
+//  시계
+// ══════════════════════════════
+function updateClock() {
+  document.getElementById('clock').textContent =
+    new Date().toLocaleTimeString('ko-KR',{hour12:false});
+}
+updateClock(); setInterval(updateClock,1000);
+
+// ══════════════════════════════
+//  큐 시스템
+// ══════════════════════════════
+const terminal = document.getElementById('terminal');
+const queue = [];
+
+function addLine(text,cls='',delay=0){ queue.push({type:'line',text,cls,delay}); }
+function addTarget(name,role,delay=0){ queue.push({type:'target',name,role,delay}); }
+function addProgress(delay=0,snd='normal'){ queue.push({type:'progress',delay,snd}); }
+function addBlank(delay=65){ queue.push({type:'blank',delay}); }
+function addPause(ms){ queue.push({type:'pause',ms}); }
+function addSound(fn,delay=0){ queue.push({type:'sound',fn,delay}); }
+
+async function runQueue() {
+  for(const item of queue){
+    await new Promise(r=>setTimeout(r,item.delay||0));
+    if      (item.type==='blank')    { const e=document.createElement('span'); e.className='line'; e.innerHTML='&nbsp;'; terminal.appendChild(e); }
+    else if (item.type==='pause')    { await new Promise(r=>setTimeout(r,item.ms)); }
+    else if (item.type==='line')     { await typeLine(item.text,item.cls); }
+    else if (item.type==='target')   { await showTarget(item.name,item.role); }
+    else if (item.type==='progress') { await runProgress(item.snd); }
+    else if (item.type==='sound')    { item.fn(); }
+    terminal.scrollTop=terminal.scrollHeight;
+  }
+  await new Promise(r=>setTimeout(r,450));
+  triggerFinal();
+}
+
+function typeLine(text,cls='') {
+  return new Promise(resolve=>{
+    const el=document.createElement('span');
+    el.className='line'+(cls?' '+cls:'');
+    terminal.appendChild(el);
+    const chars=text.split(''); let i=0,cc=0;
+    const cursor=document.createElement('span'); cursor.className='cursor'; el.appendChild(cursor);
+    function next(){
+      if(i<chars.length){
+        cursor.insertAdjacentText('beforebegin',chars[i++]);
+        if(++cc%3===0) clickSound();
+        setTimeout(next,chars[i-1]===' '?26:Math.random()*28+11);
+      } else { cursor.remove(); resolve(); }
+    }
+    next();
+  });
+}
+
+function showTarget(name,role) {
+  return new Promise(resolve=>{
+    const card=document.createElement('div'); card.className='target-card';
+    card.innerHTML=`
+      <div class="t-label">▸ TARGET IDENTIFIED</div>
+      <div class="t-name">${name}</div>
+      <div class="t-role">${role}</div>
+    `;
+    terminal.appendChild(card);
+    beep(880,0.1,0.15,'sine');
+    setTimeout(resolve,300);
+  });
+}
+
+function runProgress(snd='normal') {
+  return new Promise(resolve=>{
+    const wrap=document.createElement('div'); wrap.className='progress-wrap';
+    const bar=document.createElement('div'); bar.className='progress-bar';
+    const fill=document.createElement('div'); fill.className='progress-fill';
+    bar.appendChild(fill);
+    const pct=document.createElement('span'); pct.className='progress-pct'; pct.textContent='0%';
+    wrap.appendChild(bar); wrap.appendChild(pct); terminal.appendChild(wrap);
+    let v=0,lastB=0;
+    const iv=setInterval(()=>{
+      v+=Math.random()*4.5+1; if(v>=100) v=100;
+      fill.style.width=v+'%'; pct.textContent=Math.floor(v)+'%';
+      if(v-lastB>28){ beep(500+v*3,0.035,0.07); lastB=v; }
+      if(v>=100){
+        clearInterval(iv);
+        if(snd==='alarm') alarmBeep(2);
+        else if(snd==='success') successChime();
+        else beep(880,0.08,0.12);
+        resolve();
+      }
+    },38);
+  });
+}
+
+function triggerFinal() {
+  glitchSound();
+  document.getElementById('glitch').classList.add('active');
+  setTimeout(()=>{
+    const fs=document.getElementById('final-screen');
+    fs.classList.add('show');
+    setTimeout(finalMelody,200);
+    const emojis=['💕','🌸','✨','🌹','💐','⭐','🎉','💖'];
+    for(let i=0;i<24;i++){
+      setTimeout(()=>{
+        const el=document.createElement('div'); el.className='star';
+        el.textContent=emojis[Math.floor(Math.random()*emojis.length)];
+        el.style.left=Math.random()*100+'vw';
+        el.style.top=Math.random()*100+'vh';
+        el.style.setProperty('--r',Math.random()*360+'deg');
+        el.style.animationDelay=Math.random()*0.6+'s';
+        fs.appendChild(el);
+        setTimeout(()=>el.remove(),2700);
+      },i*50);
+    }
+  },260);
+}
+
+// ══════════════════════════════
+//  시작 (첫 화면 터치 → 침입 완료)
+// ══════════════════════════════
+function startSequence() {
+  clearInterval(noiseTimer);
+  try{ getAC().resume(); }catch(e){}
+
+  // 침입 완료 연출
+  breachSound();
+  const bs = document.getElementById('breach-screen');
+  noiseLine.textContent = 'ACCESS GRANTED — FIREWALL BYPASSED';
+  noiseLine.style.color = '#00ff41';
+  breachPct.textContent = '100%';
+
+  setTimeout(()=>{
+    bs.classList.add('hide');
+    document.getElementById('glitch').classList.add('active');
+    setTimeout(()=>{
+      document.getElementById('screen').style.animation = 'power-on 0.6s ease forwards';
+      document.getElementById('screen').classList.add('show');
+    }, 200);
+  }, 600);
+
+  // 시나리오 큐
+  addPause(900);
+  addLine('FIREWALL BYPASSED — CONNECTION ESTABLISHED','dim');
+  addSound(()=>beep(300,0.12,0.1),80);
+  addLine('SSH-2.0-OpenSSH_8.9  ▸  HANDSHAKE OK','dim',380);
+  addLine('AUTHENTICATING......','dim',250);
+  addSound(()=>beep(1200,0.07,0.12),180);
+  addBlank();
+
+  addLine('SYSTEM ACCESS GRANTED','bright',220);
+  addSound(()=>successChime(),0);
+  addLine('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━','dim',80);
+  addBlank();
+
+  addLine('$ run analysis --target=PARENTS --deep','prompt',350);
+  addBlank(50);
+  addLine('[INFO] 분석 모듈 로딩 중...','dim',260);
+  addSound(()=>beep(440,0.05,0.08),0);
+  addLine('[INFO] 데이터베이스 연결 완료','dim',300);
+  addBlank();
+
+  addLine('▸ 타겟 식별 중...','',220);
+  addProgress(100,'normal');
+  addBlank(40);
+
+  addTarget('곽은진','ROLE : 최고의 엄마',180);
+  addBlank(60);
+  addTarget('이종주','ROLE : 최고의 아빠',280);
+  addBlank();
+
+  addLine('▸ 부모님 데이터 스캔 시작','',200);
+  addProgress(100,'normal');
+  addBlank();
+
+  addLine('[SCAN] 항목 탐색 중...','dim',180);
+  addLine('  → 사랑한다고 말해준 횟수 .......  셀 수 없음','dim',310);
+  addLine('  → 밥 챙겨준 횟수 ....... ∞','dim',310);
+  addLine('  → 걱정한 날 ............. 매일','dim',280);
+  addLine('  → 내 방 치워준 횟수 ...... 측정 불가','warn',310);
+  addSound(()=>alarmBeep(1),60);
+  addBlank();
+
+  addLine('▸ 감정 데이터 분석 중','',230);
+  addProgress(80,'alarm');
+  addBlank();
+
+  addLine('[WARNING] 비정상 수치 감지됨 !!','warn',180);
+  addSound(()=>alarmBeep(3),0);
+  addLine('  → 사랑 레벨 : OVERFLOW  (측정 불가)','warn',240);
+  addLine('  → 희생 지수 : 9999/100  (범위 초과)','warn',240);
+  addLine('  → 잔소리 발생 원인 : 사랑 과다','warn',240);
+  addBlank();
+
+  addLine('▸ 최종 결과 컴파일 중','',280);
+  addProgress(80,'success');
+  addBlank();
+
+  addLine('══════════════════════════════','dim',130);
+  addLine('[결과]','bright',90);
+  addBlank(40);
+  addLine('  세상에서 가장 고생 많으신 분들 발견','white',280);
+  addSound(()=>beep(784,0.1,0.12,'sine'),0);
+  addLine('  → 분류  : 세상 최고의 부모님','white',330);
+  addLine('  → 등급  : LEGENDARY ★★★★★','bright',280);
+  addSound(()=>successChime(),60);
+  addLine('══════════════════════════════','dim',130);
+  addBlank();
+
+  addLine('[ACTION] 감사 인사 전송 중...','warn',330);
+  addProgress(80,'success');
+  addLine('✓ 전송 완료 — PARENTS NOTIFIED','bright',180);
+  addSound(()=>beep(1046,0.18,0.13,'sine'),120);
+  addBlank();
+  addPause(380);
+
+  runQueue();
+}
+</script>
+</body>
+</html>
